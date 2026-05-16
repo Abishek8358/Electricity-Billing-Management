@@ -9,13 +9,19 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import uuid
 
-app = Flask(__name__)
+app = Flask(__name__, 
+            template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
 app.secret_key = 'your-secret-key'  # Replace with a secure key in production
+
 
 
 # Bypass login for development
 @app.before_request
-def auto_login():
+def setup():
+    # Initialize DB on first request
+    if not os.path.exists(DB_PATH):
+        init_db()
+    
     if 'role' not in session:
         session['user_id'] = 1
         session['role'] = 'admin'
@@ -542,7 +548,7 @@ def manage_complaints():
 def update_delete_complaint(complaint_id):
     if 'role' not in session or session['role'] != 'admin':
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     if request.method == 'PUT':
         data = request.json
@@ -560,7 +566,6 @@ def update_delete_complaint(complaint_id):
         conn.close()
         return jsonify({"message": "Complaint deleted"})
 
-init_db()
 
 if __name__ == '__main__':
     app.run(debug=True)
