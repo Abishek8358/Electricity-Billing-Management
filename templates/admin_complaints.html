@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Complaints</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans flex">
+    <!-- Sidebar -->
+    <div class="w-64 bg-blue-800 text-white h-screen p-4 fixed overflow-y-auto">
+        <h1 class="text-xl font-bold mb-6">EBMS ADMIN</h1>
+        <nav>
+            <a href="/admin/dashboard" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Dashboard</a>
+            <a href="/admin/customers" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Customers</a>
+            <a href="/admin/bills" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Bills</a>
+            <a href="/admin/payments" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Payments</a>
+            <a href="/admin/complaints" class="block py-2 px-4 bg-blue-600 rounded mb-2">Complaints</a>
+            <a href="/logout" class="block py-2 px-4 hover:bg-blue-600 rounded">Logout</a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 ml-64">
+        <h1 class="text-2xl font-bold mb-6">Complaints</h1>
+
+        <!-- Complaints Table -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Complaints</h2>
+            <input id="complaintSearch" type="text" placeholder="Search complaints..." class="border p-2 rounded mb-4 w-full" onkeyup="filterComplaints()">
+            <table class="min-w-full border-collapse border">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border p-2 text-left">Complaint ID</th>
+                        <th class="border p-2 text-left">Customer</th>
+                        <th class="border p-2 text-left">Description</th>
+                        <th class="border p-2 text-left">Status</th>
+                        <th class="border p-2 text-left">Date</th>
+                        <th class="border p-2 text-left">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="complaintsTableBody"></tbody>
+            </table>
+            <div class="flex justify-between mt-4">
+                <button onclick="prevComplaintPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="complaintPrevBtn">Previous</button>
+                <span id="complaintPageInfo"></span>
+                <button onclick="nextComplaintPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="complaintNextBtn">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let complaints = [];
+        let filteredComplaints = [];
+        let currentComplaintPage = 1;
+        const rowsPerPage = 5;
+
+        // Fetch and display complaints
+        async function fetchComplaints() {
+            const response = await fetch('/api/admin/complaints');
+            complaints = await response.json();
+            filteredComplaints = [...complaints];
+            displayComplaints();
+        }
+
+        // Filter complaints based on search input
+        function filterComplaints() {
+            const searchTerm = document.getElementById('complaintSearch').value.toLowerCase();
+            filteredComplaints = complaints.filter(c => 
+                c.id.toString().includes(searchTerm) ||
+                c.customer_name.toLowerCase().includes(searchTerm) ||
+                c.description.toLowerCase().includes(searchTerm) ||
+                c.status.toLowerCase().includes(searchTerm) ||
+                c.date.toLowerCase().includes(searchTerm)
+            );
+            currentComplaintPage = 1;
+            displayComplaints();
+        }
+
+        // Display complaints with pagination
+        function displayComplaints() {
+            const start = (currentComplaintPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedComplaints = filteredComplaints.slice(start, end);
+
+            document.getElementById('complaintsTableBody').innerHTML = paginatedComplaints.map(c => `
+                <tr>
+                    <td class="border p-2">${c.id}</td>
+                    <td class="border p-2">${c.customer_name}</td>
+                    <td class="border p-2">${c.description}</td>
+                    <td class="border p-2">
+                        <select onchange="updateComplaintStatus(${c.id}, this.value)">
+                            <option value="Open" ${c.status === 'Open' ? 'selected' : ''}>Open</option>
+                            <option value="In Progress" ${c.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                            <option value="Resolved" ${c.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+                        </select>
+                    </td>
+                    <td class="border p-2">${c.date}</td>
+                    <td class="border p-2">
+                        <button onclick="deleteComplaint(${c.id})" class="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            const totalPages = Math.ceil(filteredComplaints.length / rowsPerPage);
+            document.getElementById('complaintPageInfo').innerText = `Page ${currentComplaintPage} of ${totalPages}`;
+            document.getElementById('complaintPrevBtn').disabled = currentComplaintPage === 1;
+            document.getElementById('complaintNextBtn').disabled = currentComplaintPage === totalPages;
+        }
+
+        // Pagination controls
+        function prevComplaintPage() {
+            if (currentComplaintPage > 1) {
+                currentComplaintPage--;
+                displayComplaints();
+            }
+        }
+
+        function nextComplaintPage() {
+            const totalPages = Math.ceil(filteredComplaints.length / rowsPerPage);
+            if (currentComplaintPage < totalPages) {
+                currentComplaintPage++;
+                displayComplaints();
+            }
+        }
+
+        // Update complaint status
+        async function updateComplaintStatus(complaintId, status) {
+            await fetch('/api/admin/complaints', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: complaintId, status })
+            });
+            fetchComplaints();
+        }
+
+        // Delete complaint (requires backend support)
+        async function deleteComplaint(complaintId) {
+            if (confirm('Are you sure you want to delete this complaint?')) {
+                await fetch(`/api/admin/complaints/${complaintId}`, {
+                    method: 'DELETE'
+                });
+                fetchComplaints();
+            }
+        }
+
+        // Initial load
+        fetchComplaints();
+    </script>
+</body>
+</html>

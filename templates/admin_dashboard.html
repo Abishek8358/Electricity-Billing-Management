@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin - Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 font-sans flex">
+
+  <!-- Sidebar -->
+  <div class="w-64 bg-blue-800 text-white h-screen p-4 fixed">
+    <h1 class="text-xl font-bold mb-6">EBMS ADMIN</h1>
+    <nav>
+      <a href="/admin/dashboard" class="block py-2 px-4 bg-blue-600 rounded mb-2">Dashboard</a>
+      <a href="/admin/customers" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Customers</a>
+      <a href="/admin/bills" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Bills</a>
+      <a href="/admin/payments" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Payments</a>
+      <a href="/admin/complaints" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Complaints</a>
+      <a href="/logout" class="block py-2 px-4 hover:bg-blue-600 rounded">Logout</a>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div class="flex-1 p-6 ml-64">
+    <h1 class="text-2xl font-bold mb-6">Admin Dashboard</h1>
+
+    <!-- Overview Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div class="bg-blue-500 text-white p-6 rounded-lg shadow-md">
+        <h2 class="text-lg font-semibold">Total Customers</h2>
+        <p id="totalCustomers" class="text-3xl font-bold">18</p>
+      </div>
+      <div class="bg-red-500 text-white p-6 rounded-lg shadow-md">
+        <h2 class="text-lg font-semibold">Total Unpaid Bills</h2>
+        <p id="unpaidBills" class="text-3xl font-bold">18</p>
+      </div>
+      <div class="bg-yellow-500 text-white p-6 rounded-lg shadow-md">
+        <h2 class="text-lg font-semibold">Total Complaints</h2>
+        <p id="totalComplaints" class="text-3xl font-bold">0</p>
+      </div>
+    </div>
+
+    <!-- Revenue Flow Line Chart -->
+    <div class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-semibold mb-4">Monthly Revenue Flow</h2>
+      <canvas id="revenueChart" height="120"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // Sample hardcoded data for line chart (replace this with fetch API for real-time data)
+    const revenueLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+    const revenueData = [5000, 3340, 4023, 3048, 1084, 1534];
+
+    const ctx = document.getElementById("revenueChart").getContext("2d");
+    new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: revenueLabels,
+        datasets: [{
+          label: "Revenue (₹)",
+          data: revenueData,
+          borderColor: "#3B82F6",
+          backgroundColor: "#3B82F6",
+          fill: false,
+          tension: 0.3,
+          pointBackgroundColor: "red",
+          pointBorderColor: "#3B82F6",
+          pointRadius: 6,
+          pointHoverRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: "top"
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: "Revenue (₹)",
+              font: {
+                weight: 'bold'
+              }
+            },
+            ticks: {
+              stepSize: 10
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: "Months",
+              font: {
+                weight: 'bold'
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>

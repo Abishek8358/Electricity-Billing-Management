@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User - Bills</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans flex">
+    <!-- Sidebar -->
+    <div class="w-64 bg-blue-800 text-white h-screen p-4 fixed overflow-y-auto">
+        <h1 class="text-xl font-bold mb-6">EBMS USER</h1>
+        <nav>
+            <a href="/user/dashboard" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Dashboard</a>
+            <a href="/user/bills" class="block py-2 px-4 bg-blue-600 rounded mb-2">Bills</a>
+            <a href="/user/complaints" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Complaints</a>
+            <a href="/logout" class="block py-2 px-4 hover:bg-blue-600 rounded">Logout</a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 ml-64">
+        <h1 class="text-2xl font-bold mb-6">Bills</h1>
+
+        <!-- Bills Table -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Your Bills</h2>
+            <input id="billSearch" type="text" placeholder="Search bills..." class="border p-2 rounded mb-4 w-full" onkeyup="filterBills()">
+            <table class="min-w-full border-collapse border">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border p-2 text-left">Bill ID</th>
+                        <th class="border p-2 text-left">Meter ID</th>
+                        <th class="border p-2 text-left">Section</th>
+                        <th class="border p-2 text-left">Amount (₹)</th>
+                        <th class="border p-2 text-left">Date</th>
+                        <th class="border p-2 text-left">Status</th>
+                        <th class="border p-2 text-left">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="billsTableBody"></tbody>
+            </table>
+            <div class="flex justify-between mt-4">
+                <button onclick="prevBillPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="billPrevBtn">Previous</button>
+                <span id="billPageInfo"></span>
+                <button onclick="nextBillPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="billNextBtn">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+            <h2 class="text-xl font-semibold mb-4">Pay Bill</h2>
+            <p id="billDetails" class="mb-4"></p>
+            <input id="cardNumber" type="text" placeholder="Card Number (16 digits)" class="border p-2 rounded w-full mb-4">
+            <input id="expiry" type="text" placeholder="MM/YY" class="border p-2 rounded w-full mb-4">
+            <input id="cvv" type="text" placeholder="CVV (3 digits)" class="border p-2 rounded w-full mb-4">
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="bg-gray-500 text-white px-4 py-2 rounded mr-2">Cancel</button>
+                <button id="payButton" onclick="payBill()" class="bg-green-500 text-white px-4 py-2 rounded">Pay Now</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let bills = [];
+        let filteredBills = [];
+        let currentBillPage = 1;
+        const rowsPerPage = 5;
+        let currentBillId = null;
+
+        // Fetch and display bills
+        async function fetchBills() {
+            const response = await fetch('/api/bills');
+            bills = await response.json();
+            filteredBills = [...bills];
+            displayBills();
+        }
+
+        // Filter bills based on search input
+        function filterBills() {
+            const searchTerm = document.getElementById('billSearch').value.toLowerCase();
+            filteredBills = bills.filter(b => 
+                b.id.toString().includes(searchTerm) ||
+                b.meter_id.toString().includes(searchTerm) ||
+                b.section.toLowerCase().includes(searchTerm) ||
+                b.amount.toString().includes(searchTerm) ||
+                b.date.toLowerCase().includes(searchTerm) ||
+                (b.paid ? 'paid' : 'unpaid').includes(searchTerm)
+            );
+            currentBillPage = 1;
+            displayBills();
+        }
+
+        // Display bills with pagination
+        function displayBills() {
+            const start = (currentBillPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedBills = filteredBills.slice(start, end);
+
+            document.getElementById('billsTableBody').innerHTML = paginatedBills.map(b => `
+                <tr>
+                    <td class="border p-2">${b.id}</td>
+                    <td class="border p-2">${b.meter_id}</td>
+                    <td class="border p-2">${b.section}</td>
+                    <td class="border p-2">${b.amount.toFixed(2)}</td>
+                    <td class="border p-2">${b.date}</td>
+                    <td class="border p-2">${b.paid ? 'Paid' : 'Unpaid'}</td>
+                    <td class="border p-2">
+                        ${b.paid ? 
+                            `<a href="/api/receipt/receipt_${b.id}.pdf" class="bg-blue-500 text-white px-2 py-1 rounded">Download Receipt</a>` :
+                            `<button onclick="openPaymentModal(${b.id}, ${b.amount})" class="bg-green-500 text-white px-2 py-1 rounded">Pay</button>`}
+                    </td>
+                </tr>
+            `).join('');
+
+            const totalPages = Math.ceil(filteredBills.length / rowsPerPage);
+            document.getElementById('billPageInfo').innerText = `Page ${currentBillPage} of ${totalPages}`;
+            document.getElementById('billPrevBtn').disabled = currentBillPage === 1;
+            document.getElementById('billNextBtn').disabled = currentBillPage === totalPages;
+        }
+
+        // Pagination controls for bills
+        function prevBillPage() {
+            if (currentBillPage > 1) {
+                currentBillPage--;
+                displayBills();
+            }
+        }
+
+        function nextBillPage() {
+            const totalPages = Math.ceil(filteredBills.length / rowsPerPage);
+            if (currentBillPage < totalPages) {
+                currentBillPage++;
+                displayBills();
+            }
+        }
+
+        // Open payment modal
+        function openPaymentModal(billId, amount) {
+            currentBillId = billId;
+            document.getElementById('billDetails').innerText = `Bill ID: ${billId}, Amount: ₹${amount.toFixed(2)}`;
+            document.getElementById('paymentModal').classList.remove('hidden');
+        }
+
+        // Close payment modal
+        function closeModal() {
+            document.getElementById('paymentModal').classList.add('hidden');
+            document.getElementById('cardNumber').value = '';
+            document.getElementById('expiry').value = '';
+            document.getElementById('cvv').value = '';
+        }
+
+        // Pay bill
+        async function payBill() {
+            const cardNumber = document.getElementById('cardNumber').value;
+            const expiry = document.getElementById('expiry').value;
+            const cvv = document.getElementById('cvv').value;
+
+            // Basic validation
+            if (!cardNumber || cardNumber.length !== 16 || !/^\d+$/.test(cardNumber)) {
+                alert('Please enter a valid 16-digit card number');
+                return;
+            }
+            if (!expiry || !/^\d{2}\/\d{2}$/.test(expiry)) {
+                alert('Please enter expiry date in MM/YY format');
+                return;
+            }
+            if (!cvv || cvv.length !== 3 || !/^\d+$/.test(cvv)) {
+                alert('Please enter a valid 3-digit CVV');
+                return;
+            }
+
+            const response = await fetch(`/api/pay/${currentBillId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (result.message.includes("Bill paid")) {
+                alert('Payment successful!');
+                if (result.receipt) {
+                    fetchBills();
+                }
+            } else {
+                alert('Payment failed: ' + result.message);
+            }
+            closeModal();
+        }
+
+        // Initial load
+        fetchBills();
+    </script>
+</body>
+</html>

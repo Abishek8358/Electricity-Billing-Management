@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Payments</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans flex">
+    <!-- Sidebar -->
+    <div class="w-64 bg-blue-800 text-white h-screen p-4 fixed overflow-y-auto">
+        <h1 class="text-xl font-bold mb-6">EBMS ADMIN</h1>
+        <nav>
+            <a href="/admin/dashboard" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Dashboard</a>
+            <a href="/admin/customers" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Customers</a>
+            <a href="/admin/bills" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Bills</a>
+            <a href="/admin/payments" class="block py-2 px-4 bg-blue-600 rounded mb-2">Payments</a>
+            <a href="/admin/complaints" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Complaints</a>
+            <a href="/logout" class="block py-2 px-4 hover:bg-blue-600 rounded">Logout</a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 ml-64">
+        <h1 class="text-2xl font-bold mb-6">Payments</h1>
+
+        <!-- Payments Table -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Payments</h2>
+            <input id="paymentSearch" type="text" placeholder="Search payments..." class="border p-2 rounded mb-4 w-full" onkeyup="filterPayments()">
+            <table class="min-w-full border-collapse border">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border p-2 text-left">Bill ID</th>
+                        <th class="border p-2 text-left">Meter ID</th>
+                        <th class="border p-2 text-left">Section</th>
+                        <th class="border p-2 text-left">Amount (₹)</th>
+                        <th class="border p-2 text-left">Date</th>
+                    </tr>
+                </thead>
+                <tbody id="paymentsTableBody"></tbody>
+            </table>
+            <div class="flex justify-between mt-4">
+                <button onclick="prevPaymentPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="paymentPrevBtn">Previous</button>
+                <span id="paymentPageInfo"></span>
+                <button onclick="nextPaymentPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="paymentNextBtn">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let payments = [];
+        let filteredPayments = [];
+        let currentPaymentPage = 1;
+        const rowsPerPage = 5;
+
+        // Fetch and display payments (paid bills)
+        async function fetchPayments() {
+            const response = await fetch('/api/bills');
+            const bills = await response.json();
+            payments = bills.filter(b => b.paid);
+            filteredPayments = [...payments];
+            displayPayments();
+        }
+
+        // Filter payments based on search input
+        function filterPayments() {
+            const searchTerm = document.getElementById('paymentSearch').value.toLowerCase();
+            filteredPayments = payments.filter(p => 
+                p.id.toString().includes(searchTerm) ||
+                p.meter_id.toString().includes(searchTerm) ||
+                p.section.toLowerCase().includes(searchTerm) ||
+                p.amount.toString().includes(searchTerm) ||
+                p.date.toLowerCase().includes(searchTerm)
+            );
+            currentPaymentPage = 1;
+            displayPayments();
+        }
+
+        // Display payments with pagination
+        function displayPayments() {
+            const start = (currentPaymentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedPayments = filteredPayments.slice(start, end);
+
+            document.getElementById('paymentsTableBody').innerHTML = paginatedPayments.map(p => `
+                <tr>
+                    <td class="border p-2">${p.id}</td>
+                    <td class="border p-2">${p.meter_id}</td>
+                    <td class="border p-2">${p.section}</td>
+                    <td class="border p-2">${p.amount.toFixed(2)}</td>
+                    <td class="border p-2">${p.date}</td>
+                </tr>
+            `).join('');
+
+            const totalPages = Math.ceil(filteredPayments.length / rowsPerPage);
+            document.getElementById('paymentPageInfo').innerText = `Page ${currentPaymentPage} of ${totalPages}`;
+            document.getElementById('paymentPrevBtn').disabled = currentPaymentPage === 1;
+            document.getElementById('paymentNextBtn').disabled = currentPaymentPage === totalPages;
+        }
+
+        // Pagination controls
+        function prevPaymentPage() {
+            if (currentPaymentPage > 1) {
+                currentPaymentPage--;
+                displayPayments();
+            }
+        }
+
+        function nextPaymentPage() {
+            const totalPages = Math.ceil(filteredPayments.length / rowsPerPage);
+            if (currentPaymentPage < totalPages) {
+                currentPaymentPage++;
+                displayPayments();
+            }
+        }
+
+        // Initial load
+        fetchPayments();
+    </script>
+</body>
+</html>

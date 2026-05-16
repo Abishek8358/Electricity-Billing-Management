@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Bills</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans flex">
+    <!-- Sidebar -->
+    <div class="w-64 bg-blue-800 text-white h-screen p-4 fixed overflow-y-auto">
+        <h1 class="text-xl font-bold mb-6">EBMS ADMIN</h1>
+        <nav>
+            <a href="/admin/dashboard" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Dashboard</a>
+            <a href="/admin/customers" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Customers</a>
+            <a href="/admin/bills" class="block py-2 px-4 bg-blue-600 rounded mb-2">Bills</a>
+            <a href="/admin/payments" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Payments</a>
+            <a href="/admin/complaints" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Complaints</a>
+            <a href="/logout" class="block py-2 px-4 hover:bg-blue-600 rounded">Logout</a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 ml-64">
+        <h1 class="text-2xl font-bold mb-6">Bills</h1>
+
+        <!-- Manage Readings & Bills -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4">Manage Readings & Bills</h2>
+            <button onclick="simulateReadings()" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 mb-4">Simulate Meter Readings</button>
+            <button onclick="generateBills()" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 mb-4 ml-2">Generate Bills</button>
+
+            <!-- Meter Readings Table -->
+            <h3 class="text-lg font-semibold mb-2">Meter Readings</h3>
+            <input id="readingSearch" type="text" placeholder="Search readings..." class="border p-2 rounded mb-4 w-full" onkeyup="filterReadings()">
+            <table class="min-w-full border-collapse border mb-8">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border p-2 text-left">Meter ID</th>
+                        <th class="border p-2 text-left">Section</th>
+                        <th class="border p-2 text-left">Reading (kWh)</th>
+                        <th class="border p-2 text-left">Date</th>
+                    </tr>
+                </thead>
+                <tbody id="readingsTableBody"></tbody>
+            </table>
+            <div class="flex justify-between mb-8">
+                <button onclick="prevReadingPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="readingPrevBtn">Previous</button>
+                <span id="readingPageInfo"></span>
+                <button onclick="nextReadingPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="readingNextBtn">Next</button>
+            </div>
+
+            <!-- Bills Table -->
+            <h3 class="text-lg font-semibold mb-2">Bills</h3>
+            <input id="billSearch" type="text" placeholder="Search bills..." class="border p-2 rounded mb-4 w-full" onkeyup="filterBills()">
+            <table class="min-w-full border-collapse border">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border p-2 text-left">Bill ID</th>
+                        <th class="border p-2 text-left">Meter ID</th>
+                        <th class="border p-2 text-left">Section</th>
+                        <th class="border p-2 text-left">Amount (₹)</th>
+                        <th class="border p-2 text-left">Date</th>
+                        <th class="border p-2 text-left">Paid</th>
+                        <th class="border p-2 text-left">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="billsTableBody"></tbody>
+            </table>
+            <div class="flex justify-between mt-4">
+                <button onclick="prevBillPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="billPrevBtn">Previous</button>
+                <span id="billPageInfo"></span>
+                <button onclick="nextBillPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="billNextBtn">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let readings = [];
+        let filteredReadings = [];
+        let currentReadingPage = 1;
+        let bills = [];
+        let filteredBills = [];
+        let currentBillPage = 1;
+        const rowsPerPage = 5;
+
+        // Simulate meter readings
+        async function simulateReadings() {
+            await fetch('/api/admin/simulate_readings', { method: 'POST' });
+            fetchReadings();
+        }
+
+        // Fetch and display meter readings
+        async function fetchReadings() {
+            const response = await fetch('/api/admin/readings');
+            readings = await response.json();
+            filteredReadings = [...readings];
+            displayReadings();
+        }
+
+        // Filter readings based on search input
+        function filterReadings() {
+            const searchTerm = document.getElementById('readingSearch').value.toLowerCase();
+            filteredReadings = readings.filter(r => 
+                r.meter_id.toString().includes(searchTerm) ||
+                r.section.toLowerCase().includes(searchTerm) ||
+                r.reading.toString().includes(searchTerm) ||
+                r.date.toLowerCase().includes(searchTerm)
+            );
+            currentReadingPage = 1;
+            displayReadings();
+        }
+
+        // Display readings with pagination
+        function displayReadings() {
+            const start = (currentReadingPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedReadings = filteredReadings.slice(start, end);
+
+            document.getElementById('readingsTableBody').innerHTML = paginatedReadings.map(r => `
+                <tr>
+                    <td class="border p-2">${r.meter_id}</td>
+                    <td class="border p-2">${r.section}</td>
+                    <td class="border p-2">${r.reading}</td>
+                    <td class="border p-2">${r.date}</td>
+                </tr>
+            `).join('');
+
+            const totalPages = Math.ceil(filteredReadings.length / rowsPerPage);
+            document.getElementById('readingPageInfo').innerText = `Page ${currentReadingPage} of ${totalPages}`;
+            document.getElementById('readingPrevBtn').disabled = currentReadingPage === 1;
+            document.getElementById('readingNextBtn').disabled = currentReadingPage === totalPages;
+        }
+
+        // Pagination controls for readings
+        function prevReadingPage() {
+            if (currentReadingPage > 1) {
+                currentReadingPage--;
+                displayReadings();
+            }
+        }
+
+        function nextReadingPage() {
+            const totalPages = Math.ceil(filteredReadings.length / rowsPerPage);
+            if (currentReadingPage < totalPages) {
+                currentReadingPage++;
+                displayReadings();
+            }
+        }
+
+        // Generate bills
+        async function generateBills() {
+            const response = await fetch('/api/admin/readings');
+            const readings = await response.json();
+            const meters = [...new Set(readings.map(r => r.meter_id))]; // Get unique meter IDs
+            for (const meter_id of meters) {
+                await fetch('/api/bills', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ meter_id })
+                });
+            }
+            fetchBills();
+        }
+
+        // Fetch and display bills
+        async function fetchBills() {
+            const response = await fetch('/api/bills');
+            bills = await response.json();
+            filteredBills = [...bills];
+            displayBills();
+        }
+
+        // Filter bills based on search input
+        function filterBills() {
+            const searchTerm = document.getElementById('billSearch').value.toLowerCase();
+            filteredBills = bills.filter(b => 
+                b.id.toString().includes(searchTerm) ||
+                b.meter_id.toString().includes(searchTerm) ||
+                b.section.toLowerCase().includes(searchTerm) ||
+                b.amount.toString().includes(searchTerm) ||
+                b.date.toLowerCase().includes(searchTerm) ||
+                (b.paid ? 'yes' : 'no').includes(searchTerm)
+            );
+            currentBillPage = 1;
+            displayBills();
+        }
+
+        // Display bills with pagination
+        function displayBills() {
+            const start = (currentBillPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedBills = filteredBills.slice(start, end);
+
+            document.getElementById('billsTableBody').innerHTML = paginatedBills.map(b => `
+                <tr>
+                    <td class="border p-2">${b.id}</td>
+                    <td class="border p-2">${b.meter_id}</td>
+                    <td class="border p-2">${b.section}</td>
+                    <td class="border p-2">${b.amount.toFixed(2)}</td>
+                    <td class="border p-2">${b.date}</td>
+                    <td class="border p-2">${b.paid ? 'Yes' : 'No'}</td>
+                    <td class="border p-2">
+                        <button onclick="deleteBill(${b.id})" class="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            const totalPages = Math.ceil(filteredBills.length / rowsPerPage);
+            document.getElementById('billPageInfo').innerText = `Page ${currentBillPage} of ${totalPages}`;
+            document.getElementById('billPrevBtn').disabled = currentBillPage === 1;
+            document.getElementById('billNextBtn').disabled = currentBillPage === totalPages;
+        }
+
+        // Pagination controls for bills
+        function prevBillPage() {
+            if (currentBillPage > 1) {
+                currentBillPage--;
+                displayBills();
+            }
+        }
+
+        function nextBillPage() {
+            const totalPages = Math.ceil(filteredBills.length / rowsPerPage);
+            if (currentBillPage < totalPages) {
+                currentBillPage++;
+                displayBills();
+            }
+        }
+
+        // Delete bill (requires backend support)
+        async function deleteBill(billId) {
+            if (confirm('Are you sure you want to delete this bill?')) {
+                await fetch(`/api/bills/${billId}`, {
+                    method: 'DELETE'
+                });
+                fetchBills();
+            }
+        }
+
+        // Initial load
+        fetchReadings();
+        fetchBills();
+    </script>
+</body>
+</html>

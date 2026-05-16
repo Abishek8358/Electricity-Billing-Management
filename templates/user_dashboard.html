@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans flex">
+    <!-- Sidebar -->
+    <div class="w-64 bg-blue-800 text-white h-screen p-4 fixed overflow-y-auto">
+        <h1 class="text-xl font-bold mb-6">EBMS USER</h1>
+        <nav>
+            <a href="/user/dashboard" class="block py-2 px-4 bg-blue-600 rounded mb-2">Dashboard</a>
+            <a href="/user/bills" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Bills</a>
+            <a href="/user/complaints" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Complaints</a>
+            <a href="/logout" class="block py-2 px-4 hover:bg-blue-600 rounded">Logout</a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 ml-64">
+        <h1 id="welcomeMessage" class="text-2xl font-bold mb-6">Welcome</h1>
+
+        <!-- Overview Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-red-500 text-white p-6 rounded-lg shadow-md">
+                <h2 class="text-lg font-semibold">Unpaid Bills</h2>
+                <p id="unpaidBills" class="text-3xl font-bold">0</p>
+            </div>
+            <div class="bg-yellow-500 text-white p-6 rounded-lg shadow-md">
+                <h2 class="text-lg font-semibold">Open Complaints</h2>
+                <p id="openComplaints" class="text-3xl font-bold">0</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch user details for welcome message
+        async function fetchUserDetails() {
+            const response = await fetch('/api/user/details');
+            const user = await response.json();
+            if (user.name) {
+                document.getElementById('welcomeMessage').innerText = `Welcome, ${user.name}`;
+            }
+        }
+
+        // Fetch and display overview stats
+        async function fetchStats() {
+            // Unpaid bills
+            const billsResponse = await fetch('/api/bills');
+            const bills = await billsResponse.json();
+            const unpaidBills = bills.filter(b => !b.paid).length;
+            document.getElementById('unpaidBills').innerText = unpaidBills;
+
+            // Open complaints
+            const complaintsResponse = await fetch('/api/user/complaints');
+            const complaints = await complaintsResponse.json();
+            const openComplaints = complaints.filter(c => c.status === 'Open').length;
+            document.getElementById('openComplaints').innerText = openComplaints;
+        }
+
+        // Initial load
+        fetchUserDetails();
+        fetchStats();
+    </script>
+</body>
+</html>

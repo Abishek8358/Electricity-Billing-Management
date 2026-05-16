@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Customers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans flex">
+    <!-- Sidebar -->
+    <div class="w-64 bg-blue-800 text-white h-screen p-4 fixed">
+        <h1 class="text-xl font-bold mb-6">EBMS ADMIN</h1>
+        <nav>
+            <a href="/admin/dashboard" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Dashboard</a>
+            <a href="/admin/customers" class="block py-2 px-4 bg-blue-600 rounded mb-2">Customers</a>
+            <a href="/admin/bills" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Bills</a>
+            <a href="/admin/payments" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Payments</a>
+            <a href="/admin/complaints" class="block py-2 px-4 hover:bg-blue-600 rounded mb-2">Complaints</a>
+            <a href="/logout" class="block py-2 px-4 hover:bg-blue-600 rounded">Logout</a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 ml-64">
+        <h1 class="text-2xl font-bold mb-6">Customers</h1>
+
+        <!-- Add Customer Form -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h2 class="text-xl font-semibold mb-4">Add New Customer</h2>
+            <input id="name" type="text" placeholder="Name" class="border p-2 rounded w-full mb-4">
+            <input id="email" type="email" placeholder="Email" class="border p-2 rounded w-full mb-4">
+            <input id="address" type="text" placeholder="Address" class="border p-2 rounded w-full mb-4">
+            <input id="section" type="text" placeholder="Section" class="border p-2 rounded w-full mb-4">
+            <input id="password" type="password" placeholder="Password" class="border p-2 rounded w-full mb-4">
+            <button onclick="addCustomer()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Add Customer</button>
+        </div>
+
+        <!-- Customers Table -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Customer List</h2>
+            <input id="customerSearch" type="text" placeholder="Search customers..." class="border p-2 rounded mb-4 w-full" onkeyup="filterCustomers()">
+            <table class="min-w-full border-collapse border">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border p-2 text-left">ID</th>
+                        <th class="border p-2 text-left">Name</th>
+                        <th class="border p-2 text-left">Email</th>
+                        <th class="border p-2 text-left">Address</th>
+                        <th class="border p-2 text-left">Section</th>
+                        <th class="border p-2 text-left">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="customersTableBody"></tbody>
+            </table>
+            <div class="flex justify-between mt-4">
+                <button onclick="prevPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="prevBtn">Previous</button>
+                <span id="pageInfo"></span>
+                <button onclick="nextPage()" class="bg-gray-300 px-4 py-2 rounded disabled:opacity-50" id="nextBtn">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Customer Modal -->
+    <div id="editCustomerModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+            <h2 class="text-xl font-semibold mb-4">Edit Customer</h2>
+            <input id="editCustomerId" type="hidden">
+            <input id="editName" type="text" placeholder="Name" class="border p-2 rounded w-full mb-4">
+            <input id="editEmail" type="email" placeholder="Email" class="border p-2 rounded w-full mb-4">
+            <input id="editAddress" type="text" placeholder="Address" class="border p-2 rounded w-full mb-4">
+            <input id="editSection" type="text" placeholder="Section" class="border p-2 rounded w-full mb-4">
+            <div class="flex justify-end">
+                <button onclick="closeEditModal()" class="bg-gray-500 text-white px-4 py-2 rounded mr-2">Cancel</button>
+                <button onclick="saveCustomer()" class="bg-green-500 text-white px-4 py-2 rounded">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let customers = [];
+        let filteredCustomers = [];
+        let currentPage = 1;
+        const rowsPerPage = 5;
+
+        // Fetch and display customers
+        async function fetchCustomers() {
+            const response = await fetch('/api/admin/customers');
+            customers = await response.json();
+            filteredCustomers = [...customers];
+            displayCustomers();
+        }
+
+        // Filter customers based on search input
+        function filterCustomers() {
+            const searchTerm = document.getElementById('customerSearch').value.toLowerCase();
+            filteredCustomers = customers.filter(c =>
+                c.id.toString().includes(searchTerm) ||
+                c.name.toLowerCase().includes(searchTerm) ||
+                c.email.toLowerCase().includes(searchTerm) ||
+                c.address.toLowerCase().includes(searchTerm) ||
+                c.section.toLowerCase().includes(searchTerm)
+            );
+            currentPage = 1;
+            displayCustomers();
+        }
+
+        // Display customers with pagination
+        function displayCustomers() {
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedCustomers = filteredCustomers.slice(start, end);
+
+            document.getElementById('customersTableBody').innerHTML = paginatedCustomers.map(c => `
+                <tr>
+                    <td class="border p-2">${c.id}</td>
+                    <td class="border p-2">${c.name}</td>
+                    <td class="border p-2">${c.email}</td>
+                    <td class="border p-2">${c.address}</td>
+                    <td class="border p-2">${c.section}</td>
+                    <td class="border p-2">
+                        <button onclick="openEditModal(${c.id}, '${c.name}', '${c.email}', '${c.address}', '${c.section}')" class="bg-yellow-500 text-white px-2 py-1 rounded mr-2">Edit</button>
+                        <button onclick="deleteCustomer(${c.id})" class="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            const totalPages = Math.ceil(filteredCustomers.length / rowsPerPage);
+            document.getElementById('pageInfo').innerText = `Page ${currentPage} of ${totalPages}`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+        }
+
+        // Pagination controls
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                displayCustomers();
+            }
+        }
+
+        function nextPage() {
+            const totalPages = Math.ceil(filteredCustomers.length / rowsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayCustomers();
+            }
+        }
+
+        // Add customer
+        async function addCustomer() {
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const address = document.getElementById('address').value;
+            const section = document.getElementById('section').value;
+            const password = document.getElementById('password').value || 'password123';
+
+            if (!name || !email || !address || !section) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            await fetch('/api/admin/customers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, address, section, password })
+            });
+            document.getElementById('name').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('address').value = '';
+            document.getElementById('section').value = '';
+            document.getElementById('password').value = '';
+            fetchCustomers();
+        }
+
+        // Open edit modal with pre-filled values
+        function openEditModal(id, name, email, address, section) {
+            document.getElementById('editCustomerId').value = id;
+            document.getElementById('editName').value = name;
+            document.getElementById('editEmail').value = email;
+            document.getElementById('editAddress').value = address;
+            document.getElementById('editSection').value = section;
+            document.getElementById('editCustomerModal').classList.remove('hidden');
+        }
+
+        // Close edit modal
+        function closeEditModal() {
+            document.getElementById('editCustomerModal').classList.add('hidden');
+        }
+
+        // Save updated customer
+        async function saveCustomer() {
+            const id = document.getElementById('editCustomerId').value;
+            const name = document.getElementById('editName').value;
+            const email = document.getElementById('editEmail').value;
+            const address = document.getElementById('editAddress').value;
+            const section = document.getElementById('editSection').value;
+
+            if (!name || !email || !address || !section) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const response = await fetch(`/api/admin/customers/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, address, section })
+            });
+            const result = await response.json();
+            if (result.message === "Customer updated") {
+                closeEditModal();
+                fetchCustomers();
+            } else {
+                alert('Failed to update customer: ' + result.error);
+            }
+        }
+
+        // Delete customer
+        async function deleteCustomer(customerId) {
+            if (confirm('Are you sure you want to delete this customer?')) {
+                await fetch(`/api/admin/customers/${customerId}`, {
+                    method: 'DELETE'
+                });
+                fetchCustomers();
+            }
+        }
+
+        // Initial load
+        fetchCustomers();
+    </script>
+</body>
+</html>
