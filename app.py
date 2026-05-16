@@ -4,6 +4,7 @@ import random
 from datetime import datetime
 import json
 import os
+import shutil
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import uuid
@@ -20,10 +21,19 @@ def auto_login():
         session['role'] = 'admin'
         session['customer_id'] = None
 
+
+# Database path configuration for Vercel
+DB_PATH = 'electricity.db'
+if os.environ.get('VERCEL'):
+    DB_PATH = '/tmp/electricity.db'
+    # Copy existing database to /tmp if it doesn't exist there
+    if not os.path.exists(DB_PATH) and os.path.exists('electricity.db'):
+        shutil.copy('electricity.db', DB_PATH)
+
 # Initialize SQLite database
 
 def init_db():
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +85,7 @@ def init_db():
 
 # Simulate automatic meter reading
 def simulate_meter_reading(meter_id):
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     reading = random.uniform(50, 500)  # kWh
     date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -86,7 +96,7 @@ def simulate_meter_reading(meter_id):
 
 # Generate bill based on latest reading, only if no unpaid bill exists
 def generate_bill(meter_id):
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # Check for existing unpaid bill
     c.execute("SELECT id FROM bills WHERE meter_id = ? AND paid = ?", (meter_id, False))
@@ -110,7 +120,7 @@ def generate_bill(meter_id):
 
 # Generate PDF receipt using reportlab
 def generate_receipt(bill_id, customer_id, amount, date):
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT c.name, c.email, m.section FROM customers c JOIN meters m ON c.id = m.customer_id JOIN bills b ON m.id = b.meter_id WHERE b.id = ?", (bill_id,))
     customer = c.fetchone()
@@ -122,6 +132,8 @@ def generate_receipt(bill_id, customer_id, amount, date):
     name, email, section = customer
     receipt_id = str(uuid.uuid4())
     receipt_file = f"receipt_{bill_id}.pdf"
+    if os.environ.get('VERCEL'):
+        receipt_file = os.path.join('/tmp', receipt_file)
     
     # Create PDF
     c = canvas.Canvas(receipt_file, pagesize=letter)
@@ -243,7 +255,7 @@ def logout():
 def manage_customers():
     if 'role' not in session or session['role'] != 'admin':
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     if request.method == 'POST':
         data = request.json
@@ -267,7 +279,7 @@ def manage_customers():
 def update_delete_customer(customer_id):
     if 'role' not in session or session['role'] != 'admin':
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     if request.method == 'PUT':
         data = request.json
@@ -302,7 +314,7 @@ def update_delete_customer(customer_id):
 def admin_readings():
     if 'role' not in session or session['role'] != 'admin':
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT r.id, r.meter_id, r.reading, r.date, m.section FROM readings r JOIN meters m ON r.meter_id = m.id")
     readings = [{"id": row[0], "meter_id": row[1], "reading": row[2], "date": row[3], "section": row[4]} for row in c.fetchall()]
@@ -314,7 +326,7 @@ def admin_readings():
 def simulate_readings():
     if 'role' not in session or session['role'] != 'admin':
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT id FROM meters")
     meters = [row[0] for row in c.fetchall()]
@@ -330,7 +342,7 @@ def simulate_readings():
 def manage_bills():
     if 'role' not in session:
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     if request.method == 'POST':
         if session['role'] != 'admin':
@@ -352,7 +364,7 @@ def manage_bills():
 def update_delete_bill(bill_id):
     if 'role' not in session or session['role'] != 'admin':
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     if request.method == 'PUT':
         data = request.json
@@ -375,7 +387,7 @@ def update_delete_bill(bill_id):
 def get_monthly_revenue():
     if 'role' not in session or session['role'] != 'admin':
         return jsonify({"error": "Unauthorized"}), 401
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # Group paid bills by month and year, sum the amounts
     c.execute("""
@@ -399,7 +411,7 @@ def pay_bill(bill_id):
     if 'role' not in session or session['role'] != 'customer':
         return jsonify({"error": "Unauthorized"}), 401
 
-    conn = sqlite3.connect('electricity.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
     # Get bill info
@@ -432,24 +444,22 @@ def pay_bill(bill_id):
 
     if receipt_file:
         # You could send the file URL or a link here, or just acknowledge payment success.
-        return jsonify({"message": "Bill paid successfully", "receipt": receipt_file})
+        return jsonify({"message": "Bill paid successfully", "receipt": os.path.basename(receipt_file)})
     else:
         return jsonify({"message": "Bill paid successfully, but receipt generation failed"})
-
-    # Generate receipt
-    receipt_file = generate_receipt(bill_id, customer_id, amount, date)
-    if receipt_file and os.path.exists(receipt_file):
-        return jsonify({"message": "Bill paid", "receipt": receipt_file})
-    return jsonify({"message": "Bill paid, receipt generation failed"})
 
 
 # User: Download receipt
 @app.route('/api/receipt/<filename>')
 def download_receipt(filename):
-    if 'role' not in session or session['role'] != 'customer':
-        return jsonify({"error": "Unauthorized"}), 401
-    if os.path.exists(filename):
-        return send_file(filename, as_attachment=True)
+    if 'role' in session or session['role'] == 'customer':
+        # Check both local and /tmp
+        path = filename
+        if not os.path.exists(path):
+            path = os.path.join('/tmp', filename)
+        
+        if os.path.exists(path):
+            return send_file(path, as_attachment=True)
     return jsonify({"error": "Receipt not found"}), 404
 # User: Submit complaint
 @app.route('/api/complaints', methods=['POST'])
