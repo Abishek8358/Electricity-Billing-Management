@@ -7,6 +7,7 @@ A modern, web-based Electricity Billing and Management System built with Python,
 ## 🚀 Live Demo & Deployment
 This project is configured for **Vercel** serverless hosting using `vercel.json` with temporary file operations mapped to `/tmp` to bypass serverless read-only restrictions.
 
+- **Live Demo**: [https://electricity-billing-managementabish.vercel.app/](https://electricity-billing-managementabish.vercel.app/)
 - **GitHub Repository**: [https://github.com/Abishek8358/Electricity-Billing-Management](https://github.com/Abishek8358/Electricity-Billing-Management)
 
 ---
